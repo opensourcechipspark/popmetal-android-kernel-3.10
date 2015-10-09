@@ -8,15 +8,22 @@
 		status = "okay";
 	};
 
+    test-led{
+        compatible = "xxh,led";
+        led1 = <&gpio6 GPIO_A5 GPIO_ACTIVE_HIGH>;
+        led2 = <&gpio6 GPIO_A6 GPIO_ACTIVE_HIGH>;
+        led3 = <&gpio6 GPIO_A7 GPIO_ACTIVE_HIGH>;
+        status = "okay";
+    };  
+    
     wireless-wlan {
         compatible = "wlan-platdata";
 
-        /* wifi_chip_type - wifi chip define
-         * bcmwifi ==> like ap6xxx, rk90x;
-         * rtkwifi ==> like rtl8188xx, rtl8723xx;
-         * esp8089 ==> esp8089;
-         * other   ==> for other wifi;
-         */
+         //wifi_chip_type - wifi chip define
+         //bcmwifi ==> like ap6xxx, rk90x;
+         //rtkwifi ==> like rtl8188xx, rtl8723xx;
+         //esp8089 ==> esp8089;
+         //other   ==> for other wifi;
         wifi_chip_type = "bcmwifi";
 
         sdio_vref = <1800>; //1800mv or 3300mv
@@ -467,7 +474,24 @@
 		compatible = "nxp,pcf8563";
 		reg = <0x51>;
 	};
-	
+    
+    /*
+    tpm@20 {
+        compatible = "infineon,slb9645tt";
+        reg = <0x20>;
+    };
+	*/
+
+    sensor@69 {
+		compatible = "l3g4200d_gyro";
+		reg = <0x69>;
+		type = <SENSOR_TYPE_GYROSCOPE>;
+        irq-gpio = <&gpio6 GPIO_A5 IRQ_TYPE_LEVEL_LOW>;
+		irq_enable = <1>;
+		poll_delay_ms = <30>;
+		layout = <1>;
+	};
+
 	sensor@1d {
 		compatible = "gs_mma8452";
 		reg = <0x1d>;
@@ -477,60 +501,17 @@
 		poll_delay_ms = <30>;
 		layout = <1>;
 	};
-		sensor@19 {
-		compatible = "gs_lis3dh";
-		reg = <0x19>;
-		type = <SENSOR_TYPE_ACCEL>;
-		irq-gpio = <&gpio0 GPIO_A0 IRQ_TYPE_LEVEL_LOW>;
-		irq_enable = <1>;
-		poll_delay_ms = <30>;
-		layout = <1>;
-	};
-		sensor@0d {
+    
+	sensor@0d {
 		compatible = "ak8963";
 		reg = <0x0d>;
 		type = <SENSOR_TYPE_COMPASS>;
-		irq-gpio = <&gpio8 GPIO_A2 IRQ_TYPE_EDGE_RISING>;
+		irq-gpio = <&gpio8 GPIO_A1 IRQ_TYPE_LEVEL_HIGH>;
 		irq_enable = <1>;
 		poll_delay_ms = <30>;
 		layout = <1>;
 	};
 
-		sensor@6b {
-		compatible = "l3g20d_gyro";
-		reg = <0x6b>;
-		type = <SENSOR_TYPE_GYROSCOPE>;
-		irq-gpio = <&gpio8 GPIO_A3 IRQ_TYPE_LEVEL_LOW>;
-		irq_enable = <1>;
-		poll_delay_ms = <30>;
-		layout = <1>;
-	};
-	sensor@10 {
-              compatible = "ls_cm3218";
-              reg = <0x10>;
-              type = <SENSOR_TYPE_LIGHT>;
-              irq-gpio = <&gpio8 GPIO_A3 IRQ_TYPE_EDGE_FALLING>;              
-              irq_enable = <1>;
-              poll_delay_ms = <30>;
-              layout = <1>;
-       };
-
-    nfc-bcm2079x@76 {
-        compatible = "nfc-bcm2079x.ap6441";
-        reg = <0x76>;
-        en_gpio = <&gpio4 GPIO_D3 GPIO_ACTIVE_HIGH>;
-        wake_gpio = <&gpio5 GPIO_C0 GPIO_ACTIVE_HIGH>;
-        irq_gpio = <&gpio5 GPIO_B7 IRQ_TYPE_EDGE_RISING>;
-        status = "disabled";
-    };
-    nfc-bcm2079x@77 {
-        compatible = "nfc-bcm2079x.ap6493";
-        reg = <0x77>;
-        en_gpio = <&gpio4 GPIO_D3 GPIO_ACTIVE_HIGH>;
-        wake_gpio = <&gpio5 GPIO_C0 GPIO_ACTIVE_HIGH>;
-        irq_gpio = <&gpio5 GPIO_B7 IRQ_TYPE_EDGE_RISING>;
-        status = "disabled";
-    };
 };
 
 &i2c2 {
@@ -553,6 +534,7 @@
 
 &i2c4 {
 	status = "okay";
+    /*
 	ts@55 {
 		compatible = "goodix,gt8xx";
 		reg = <0x55>;
@@ -571,10 +553,28 @@
 		irq_gpio_number = <&gpio7 GPIO_A6 IRQ_TYPE_LEVEL_LOW>;
 		rst_gpio_number = <&gpio7 GPIO_A5 GPIO_ACTIVE_HIGH>;
 	};
+   */
+
+    BH1750FVI@23{
+        compatible = "xxh,light";
+        reg = <0x23>;
+    };
+   
+    /*   
+    sensor@69 {
+		compatible = "l3g4200d_gyro";
+		reg = <0x69>;
+		type = <SENSOR_TYPE_GYROSCOPE>;
+        irq-gpio = <&gpio6 GPIO_A5 IRQ_TYPE_LEVEL_LOW>;
+		irq_enable = <1>;
+		poll_delay_ms = <30>;
+		layout = <1>;
+	};
+    */
 };
 
 &i2c5 {
-	status = "disable";
+	status = "disabled";
 };
 
 &fb {
