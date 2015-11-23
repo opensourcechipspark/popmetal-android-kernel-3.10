@@ -17,6 +17,8 @@
 #include <linux/pm.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -115,8 +117,10 @@ enum wm8960_play_type{
 
 /* playback register list */
 static struct reg_default playback_power_up_list[] = {
-	{0x02, 0x0173},
-	{0x03, 0x0173},
+	{0x00, 0x012e},
+	{0x01, 0x012e},
+	{0x02, 0x017a},
+	{0x03, 0x017a},
 	{0x04, 0x0000},
 	{0x05, 0x0000},
 	{0x06, 0x0008},
@@ -155,8 +159,9 @@ static struct reg_default playback_power_down_list[] = {
 
 /* capture register list */
 static struct reg_default capture_power_up_list[] = {
-	{0x00, 0x0113},
-	{0x01, 0x0113},
+	{0x00, 0x012e},
+	{0x01, 0x012e},
+	{0x05, 0x0000},
 	{0x15, 0x01c3},
 	{0x16, 0x01c3},
 	{0x19, 0x00fe},
@@ -164,13 +169,14 @@ static struct reg_default capture_power_up_list[] = {
 	{0x2f, 0x0020},
 };
 static struct reg_default capture_power_down_list[] = {
-	{0x00, 0x0100},
-	{0x01, 0x0100},
-	{0x15, 0x0100},
-	{0x16, 0x0100},
-	{0x19, 0x00c0},
-	{0x20, 0x0100},
-	{0x2f, 0x0000},
+	{0x00, 0x012e},
+	{0x01, 0x012e},
+	{0x05, 0x0000},
+	{0x15, 0x01c3},
+	{0x16, 0x01c3},
+	{0x19, 0x00fe},
+	{0x20, 0x0138},
+	{0x2f, 0x0020},
 };
 #define WM8960_CAPTURE_POWER_UP_LIST_LEN	ARRAY_SIZE(capture_power_up_list)
 #define WM8960_CAPTURE_POWER_DOWN_LIST_LEN	ARRAY_SIZE(capture_power_down_list)
@@ -195,6 +201,7 @@ struct wm8960_priv {
 	struct snd_soc_dapm_widget *out3;
 	bool deemph;
 	int playback_fs;
+	int enable_gpio;
 	struct dentry * debugfs_dir;
 };
 
@@ -302,10 +309,10 @@ SOC_DOUBLE_R_TLV("Headphone Playback Volume", WM8960_LOUT1, WM8960_ROUT1,
 SOC_DOUBLE_R("Headphone Playback ZC Switch", WM8960_LOUT1, WM8960_ROUT1,
 	7, 1, 0),
 
-SOC_DOUBLE_R_TLV("Speaker Playback Volume", WM8960_LOUT2, WM8960_ROUT2,
-		 0, 127, 0, out_tlv),
-SOC_DOUBLE_R("Speaker Playback ZC Switch", WM8960_LOUT2, WM8960_ROUT2,
-	7, 1, 0),
+//SOC_DOUBLE_R_TLV("Speaker Playback Volume", WM8960_LOUT2, WM8960_ROUT2,
+//		 0, 127, 0, out_tlv),
+//SOC_DOUBLE_R("Speaker Playback ZC Switch", WM8960_LOUT2, WM8960_ROUT2,
+//	7, 1, 0),
 SOC_SINGLE("Speaker DC Volume", WM8960_CLASSD3, 3, 5, 0),
 SOC_SINGLE("Speaker AC Volume", WM8960_CLASSD3, 0, 5, 0),
 
@@ -354,7 +361,8 @@ SOC_DAPM_SINGLE("LINPUT1 Switch", WM8960_LINPATH, 8, 1, 0),
 };
 
 static const struct snd_kcontrol_new wm8960_lin[] = {
-SOC_DAPM_SINGLE("Boost Switch", WM8960_LINPATH, 3, 1, 0),
+//TODO: remove to reserve bit
+SOC_DAPM_SINGLE("Boost Switch", WM8960_LINPATH, 0, 1, 0),
 };
 
 static const struct snd_kcontrol_new wm8960_rin_boost[] = {
@@ -364,17 +372,20 @@ SOC_DAPM_SINGLE("RINPUT1 Switch", WM8960_RINPATH, 8, 1, 0),
 };
 
 static const struct snd_kcontrol_new wm8960_rin[] = {
-SOC_DAPM_SINGLE("Boost Switch", WM8960_RINPATH, 3, 1, 0),
+//TODO: remove to reserve bit
+SOC_DAPM_SINGLE("Boost Switch", WM8960_RINPATH, 0, 1, 0),
 };
 
 static const struct snd_kcontrol_new wm8960_loutput_mixer[] = {
-SOC_DAPM_SINGLE("PCM Playback Switch", WM8960_LOUTMIX, 8, 1, 0),
+//TODO: remove to reserve bit
+SOC_DAPM_SINGLE("PCM Playback Switch", WM8960_LOUTMIX, 0, 1, 0),
 SOC_DAPM_SINGLE("LINPUT3 Switch", WM8960_LOUTMIX, 7, 1, 0),
 SOC_DAPM_SINGLE("Boost Bypass Switch", WM8960_BYPASS1, 7, 1, 0),
 };
 
 static const struct snd_kcontrol_new wm8960_routput_mixer[] = {
-SOC_DAPM_SINGLE("PCM Playback Switch", WM8960_ROUTMIX, 8, 1, 0),
+//TODO: remove to reserve bit
+SOC_DAPM_SINGLE("PCM Playback Switch", WM8960_ROUTMIX, 0, 1, 0),
 SOC_DAPM_SINGLE("RINPUT3 Switch", WM8960_ROUTMIX, 7, 1, 0),
 SOC_DAPM_SINGLE("Boost Bypass Switch", WM8960_BYPASS2, 7, 1, 0),
 };
@@ -399,9 +410,10 @@ SND_SOC_DAPM_MIXER("Left Boost Mixer", WM8960_POWER1, 5, 0,
 SND_SOC_DAPM_MIXER("Right Boost Mixer", WM8960_POWER1, 4, 0,
 		   wm8960_rin_boost, ARRAY_SIZE(wm8960_rin_boost)),
 
-SND_SOC_DAPM_MIXER("Left Input Mixer", WM8960_POWER3, 5, 0,
+// TODO: I just remove them to reserve bit
+SND_SOC_DAPM_MIXER("Left Input Mixer", WM8960_POWER3, 8, 0,
 		   wm8960_lin, ARRAY_SIZE(wm8960_lin)),
-SND_SOC_DAPM_MIXER("Right Input Mixer", WM8960_POWER3, 4, 0,
+SND_SOC_DAPM_MIXER("Right Input Mixer", WM8960_POWER3, 7, 0,
 		   wm8960_rin, ARRAY_SIZE(wm8960_rin)),
 
 SND_SOC_DAPM_ADC("Left ADC", "Capture", WM8960_POWER1, 3, 0),
@@ -664,10 +676,11 @@ static int wm8960_hw_params(struct snd_pcm_substream *substream,
 		wm8960_set_deemph(codec);
 	} else {
 		for (i = 0; i < ARRAY_SIZE(alc_rates); i++)
-			if (alc_rates[i].rate == params_rate(params))
+			if (alc_rates[i].rate == params_rate(params)) {
 				snd_soc_update_bits(codec,
 						    WM8960_ADDCTL3, 0x7,
 						    alc_rates[i].val);
+			}
 	}
 
 	/* set iface */
@@ -749,7 +762,7 @@ static int wm8960_set_bias_level_capless(struct snd_soc_codec *codec,
 	int reg;
 	char level_name[][15] = {"BIAS_OFF", "BIAS_STANDBY", "BIAS_PREPARE", "BIAS_ON"};
 
-	pr_debug("[%s]: <old->new> %s -> %s.\n", __func__, 
+	pr_info("[%s]: <old->new> %s -> %s.\n", __func__, 
 			level_name[(int)codec->dapm.bias_level], level_name[(int)level]);
 	
 	switch (level) {
@@ -792,7 +805,6 @@ static int wm8960_set_bias_level_capless(struct snd_soc_codec *codec,
 
 			msleep(100);
 			break;
-
 		case SND_SOC_BIAS_ON:
 			/* Enable anti-pop mode */
 			snd_soc_update_bits(codec, WM8960_APOP1,
@@ -1082,6 +1094,7 @@ static int wm8960_startup(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec * codec = dai->codec;
+	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
 	bool playback = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 	
 	pr_info("%s : substream->stream : %s \n", __func__,
@@ -1089,7 +1102,11 @@ static int wm8960_startup(struct snd_pcm_substream *substream,
 
 	if (playback == true) {
 		/* excute PLAYBACK function */
+		wm8960_power_down(codec, WM8960_PLAYBACK);
 		wm8960_power_up(codec, WM8960_PLAYBACK);
+
+		if (gpio_is_valid(wm8960->enable_gpio))
+			gpio_set_value(wm8960->enable_gpio, 1);
 	} else {
 		/* excute CAPTURE function */
 		wm8960_power_up(codec, WM8960_CAPTURE);
@@ -1101,14 +1118,17 @@ static void wm8960_shutdown(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec * codec = dai->codec;
+	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
 	bool playback = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 
 	pr_info("%s : substream->stream : %s \n", __func__,
 		playback ? "PLAYBACK":"CAPTURE");
-
 	if (playback == true) {
 		/* excute PLAYBACK function */
 		wm8960_power_down(codec, WM8960_PLAYBACK);
+
+		if (gpio_is_valid(wm8960->enable_gpio))
+			gpio_set_value(wm8960->enable_gpio, 0);
 	} else {
 		/* excute CAPTURE function */
 		wm8960_power_down(codec, WM8960_CAPTURE);
@@ -1332,7 +1352,9 @@ static int wm8960_i2c_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
 	struct wm8960_data *pdata = dev_get_platdata(&i2c->dev);
+	struct device_node *node = i2c->dev.of_node;
 	struct wm8960_priv *wm8960;
+	enum of_gpio_flags flags;
 	int ret;
 
 	wm8960 = devm_kzalloc(&i2c->dev, sizeof(struct wm8960_priv),
@@ -1348,7 +1370,7 @@ static int wm8960_i2c_probe(struct i2c_client *i2c,
 	/* Headphone outputs configured in capless mode 
 	 * DAC and ADC LRCLKs are wired together
 	 */
-	pdata->capless = true;
+	pdata->capless = false;
 	i2c->dev.platform_data = (void *)pdata;
 
 	wm8960->regmap = devm_regmap_init_i2c(i2c, &wm8960_regmap);
@@ -1369,6 +1391,9 @@ static int wm8960_i2c_probe(struct i2c_client *i2c,
 
 	ret = snd_soc_register_codec(&i2c->dev,
 			&soc_codec_dev_wm8960, &wm8960_dai, 1);
+
+	wm8960->enable_gpio = of_get_named_gpio_flags(node, "headphone-gpios",
+						      0, &flags);
 
 	return ret;
 }
